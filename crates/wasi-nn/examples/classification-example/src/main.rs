@@ -1,12 +1,22 @@
 use std::convert::TryInto;
 use std::fs;
+use std::env;
 use wasi_nn;
 
 pub fn main() {
-    let xml = fs::read_to_string("fixture/model.xml").unwrap();
+    let args: Vec<String> = env::args().collect();
+    let model_path = &args[1];
+    let model_name = &args[2];
+    let tensor_path = &args[3];
+    let tensor_height = args[4].parse::<u32>().unwrap();
+    let tensor_width = args[5].parse::<u32>().unwrap();
+    let precision = &args[6];
+    let tensor_type = get_type(precision);
+
+    let xml = fs::read_to_string(model_path.to_owned() + "/" + &model_name + ".xml").unwrap();
     println!("Read graph XML, first 50 characters: {}", &xml[..50]);
 
-    let weights = fs::read("fixture/model.bin").unwrap();
+    let weights = fs::read(model_path.to_owned() + "/" + &model_name + ".bin").unwrap();
     println!("Read graph weights, size in bytes: {}", weights.len());
 
     let graph = unsafe {
@@ -24,11 +34,11 @@ pub fn main() {
 
     // Load a tensor that precisely matches the graph input tensor (see
     // `fixture/frozen_inference_graph.xml`).
-    let tensor_data = fs::read("fixture/tensor.bgr").unwrap();
+    let tensor_data = fs::read(tensor_path).unwrap();
     println!("Read input tensor, size in bytes: {}", tensor_data.len());
     let tensor = wasi_nn::Tensor {
-        dimensions: &[1, 3, 224, 224],
-        r#type: wasi_nn::TENSOR_TYPE_F32,
+        dimensions: &[1, 3, tensor_height, tensor_width],
+        r#type: tensor_type,
         data: &tensor_data,
     };
     unsafe {
@@ -56,6 +66,14 @@ pub fn main() {
         "Found results, sorted top 5: {:?}",
         &sort_results(&output_buffer)[..5]
     )
+}
+
+fn get_type(precision: &String) -> wasi_nn::TensorType {
+    match precision .as_str() {
+        "f16" => wasi_nn::TENSOR_TYPE_F16,
+        "f32" => wasi_nn::TENSOR_TYPE_F32,
+        _ => wasi_nn::TENSOR_TYPE_U8,
+    }
 }
 
 // Sort the buffer of probabilities. The graph places the match probability for each class at the
