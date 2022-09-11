@@ -28,15 +28,18 @@ OPENVINO_INSTALL_DIR=~/intel/openvino_2022 cargo build -p wasmtime-cli --feature
 # Download all necessary test fixtures to the temporary directory.
 wget --no-clobber $FIXTURE/mobilenet.bin --output-document=$TMP_DIR/model.bin
 wget --no-clobber $FIXTURE/mobilenet.xml --output-document=$TMP_DIR/model.xml
+# cp ~/native/public/mobilenet-v2/FP32/mobilenet-v2.xml $TMP_DIR/model.xml
+# cp ~/native/public/mobilenet-v2/FP32/mobilenet-v2.bin $TMP_DIR/model.bin
 wget --no-clobber $FIXTURE/tensor-1x224x224x3-f32.bgr --output-document=$TMP_DIR/tensor.bgr
 
 # Now build an example that uses the wasi-nn API.
 pushd $WASMTIME_DIR/crates/wasi-nn/examples/classification-example
 cargo build --release --target=wasm32-wasi
+# cp target/wasm32-wasi/release/wasi-nn-example.wasm $TMP_DIR
 cp target/wasm32-wasi/release/wasi-nn-example.wasm ~/native
 popd
 
-Run the example in Wasmtime (note that the example uses `fixture` as the expected location of the model/tensor files).
+# Run the example in Wasmtime (note that the example uses `fixture` as the expected location of the model/tensor files).
 cargo run -- run --mapdir fixture::$TMP_DIR $TMP_DIR/wasi-nn-example.wasm --wasi-modules=experimental-wasi-nn  -- fixture model fixture/tensor.bgr 224 224 f32
 
 # Clean up the temporary directory only if it was not specified (users may want to keep the directory around).
